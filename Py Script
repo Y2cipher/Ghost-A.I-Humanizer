@@ -1,0 +1,971 @@
+"""
+Ghost 👻 - Offline NLTK Humanizer (Tkinter, Threaded, v3.0)
+Developer: David Ayobami Okeleye (@Y2cipher) 
+Enhanced: AI Detection Evasion + Capitalization Control
+
+New Features v3.0:
+- Advanced AI detection evasion (target: 2% detection rate)
+- Capitalization variation control
+- Enhanced perplexity simulation
+- Strategic typo injection
+- Sentence structure randomization
+- Contraction variation
+- Stylistic inconsistencies (human-like)
+"""
+
+import tkinter as tk
+from tkinter import ttk, filedialog, scrolledtext, messagebox
+import threading
+import queue
+import os
+import sys
+import time
+import random
+import string
+import re
+
+# ---------------------------
+# NLTK Setup with Windows Fix
+# ---------------------------
+import nltk
+
+os.environ["NLTK_DATA"] = os.path.expanduser("~/nltk_data")
+
+def ensure_nltk_tokenizers():
+    """Ensure both punkt and punkt_tab are available for NLTK tokenization."""
+    to_download = []
+    for pkg, path in [
+        ("punkt", "tokenizers/punkt"),
+        ("punkt_tab", "tokenizers/punkt_tab"),
+    ]:
+        try:
+            nltk.data.find(path)
+        except LookupError:
+            to_download.append(pkg)
+
+    for pkg in to_download:
+        print(f"Downloading NLTK package: {pkg}")
+        nltk.download(pkg, quiet=True)
+
+from nltk.corpus import wordnet
+from nltk.tokenize import sent_tokenize, word_tokenize
+
+def ensure_nltk_data():
+    """Ensure required NLTK corpora/tokenizers are available; download quietly if missing."""
+    ensure_nltk_tokenizers()
+    
+    try:
+        nltk.data.find('corpora/wordnet')
+    except LookupError:
+        try:
+            print("Downloading NLTK package: wordnet")
+            nltk.download('wordnet', quiet=True)
+        except Exception as e:
+            raise RuntimeError(f"Failed to download NLTK resource 'wordnet': {e}")
+    
+    try:
+        nltk.data.find('taggers/averaged_perceptron_tagger')
+    except LookupError:
+        try:
+            print("Downloading NLTK package: averaged_perceptron_tagger")
+            nltk.download('averaged_perceptron_tagger', quiet=True)
+        except Exception as e:
+            print(f"Warning: Could not download POS tagger: {e}")
+
+try:
+    ensure_nltk_data()
+except RuntimeError as e:
+    print("Warning: NLTK data check failed:", e, file=sys.stderr)
+
+# ---------------------------
+# Enhanced Humanizer with AI Evasion
+# ---------------------------
+class LocalHumanizer:
+    def add_natural_redundancy(self, text, redundancy_rate=0.08):
+        """Humans repeat themselves slightly - AI doesn't."""
+        sentences = text.split('. ')
+        modified = []
+        
+        for i, sent in enumerate(sentences):
+            modified.append(sent)
+            # Occasionally add a rephrased version
+            if i > 0 and random.random() < redundancy_rate:
+                phrases = [
+                    "In other words",
+                    "To put it another way",
+                    "What I mean is",
+                    "That is to say"
+                ]
+                # Add a slight rephrase of previous concept
+                if random.random() < 0.6:
+                    connector = random.choice(phrases)
+                    modified.append(f"{connector}, {sent.split()[0].lower()} {' '.join(sent.split()[1:3])}")
+        
+        return '. '.join(modified)
+    
+    def add_hedging_language(self, text, hedge_rate=0.10):
+        """Humans use uncertain/hedging language - AI is too confident."""
+        hedges = [
+            ('is', 'seems to be'),
+            ('will', 'might'),
+            ('shows', 'appears to show'),
+            ('proves', 'suggests'),
+            ('always', 'often'),
+            ('never', 'rarely'),
+            ('must', 'should probably'),
+            ('certainly', 'likely')
+        ]
+        
+        for original, hedge in hedges:
+            if random.random() < hedge_rate:
+                # Replace with word boundaries
+                text = re.sub(r'\b' + original + r'\b', hedge, text, count=random.randint(1, 2))
+        
+        return text
+    
+    def add_personal_touches(self, text, personal_rate=0.06):
+        """Add subjective/personal elements humans naturally include."""
+        sentences = text.split('. ')
+        modified = []
+        
+        for sent in sentences:
+            if random.random() < personal_rate:
+                personal_phrases = [
+                    "I think",
+                    "In my view",
+                    "It seems",
+                    "From what I can tell",
+                    "As far as I know",
+                     "In my opinion", 
+    "I believe", 
+    "I feel", 
+    "It appears", 
+    "From my perspective", 
+    "The way I see it", 
+    "As I understand it", 
+    "To my mind", 
+    "If you ask me", 
+    "Personally", 
+    "I'd say", 
+    "I reckon", 
+    "I suppose", 
+    "I imagine", 
+    "I gather", 
+    "It looks like", 
+    "It would seem", 
+    "As far as I can see", 
+    "To the best of my knowledge", 
+    "From where I stand", 
+    "In my experience", 
+    "I tend to think", 
+    "My sense is", 
+    "I get the impression", 
+    "It strikes me that", 
+    "I have a feeling", 
+    "My understanding is", 
+    "I'm inclined to think", 
+    "If I'm not mistaken", 
+    "Unless I'm wrong", 
+    "It's my view that", 
+    "I'm of the opinion", 
+    "From my standpoint", 
+    "As I see it", 
+    "Personally speaking",
+                    
+                ]
+                sent = f"{random.choice(personal_phrases)}, {sent[0].lower()}{sent[1:]}"
+            modified.append(sent)
+        
+        return '. '.join(modified)
+    """
+    Advanced humanization with AI detection evasion techniques.
+    Target: <2% AI detection probability
+    """
+
+    def __init__(self, seed=None):
+        if seed is not None:
+            random.seed(seed)
+        
+        self.casual_map = {
+            "therefore": "so",
+            "however": "but",
+            "consequently": "so",
+            "utilize": "use",
+            "demonstrate": "show",
+            "assist": "help",
+            "obtain": "get",
+            "additionally": "also",
+            "furthermore": "plus",
+            "nevertheless": "still",
+        }
+        self.formal_map = {
+            "so": "therefore",
+            "but": "however",
+            "get": "obtain",
+            "use": "utilize",
+            "show": "demonstrate",
+            "help": "assist",
+            "also": "additionally",
+            "plus": "furthermore",
+        }
+        
+        # Expanded blacklist
+        self.blacklist = {
+            'atomic', 'number', 'pine', 'tree', 'state','eudaimonia' 'frederick',
+            'charles', 'citizenry', 'information', 'technology', 'aside',
+            'astir', 'worth', 'iodine', 'iodin', 'maine'
+        }
+        
+        # Common contractions for natural flow
+        self.contractions = {
+            "is not": "isn't", "are not": "aren't", "was not": "wasn't",
+            "were not": "weren't", "have not": "haven't", "has not": "hasn't",
+            "had not": "hadn't", "will not": "won't", "would not": "wouldn't",
+            "do not": "don't", "does not": "doesn't", "did not": "didn't",
+            "cannot": "can't", "could not": "couldn't", "should not": "shouldn't",
+            "it is": "it's", "that is": "that's", "what is": "what's",
+            "I am": "I'm", "you are": "you're", "we are": "we're",
+            "they are": "they're", "I have": "I've", "you have": "you've",
+            "I will": "I'll", "you will": "you'll"
+        }
+        
+        # Subtle Human like typos
+        self.common_typos = {
+            "the": ["thee"],
+            "that": ["taht"],
+            "from": ["form"],
+            "with": ["wiht"],
+            "recieve": ["receive"],
+            "untill": ["until"],
+            "begining": ["beginning"],
+            "seperate": ["separate"],
+            "occured": ["occurred"],
+            "their": ["there"],
+        }
+
+    def get_wordnet_pos(self, treebank_tag):
+        """Convert Treebank POS tag to WordNet POS tag."""
+        if treebank_tag.startswith('J'):
+            return wordnet.ADJ
+        elif treebank_tag.startswith('V'):
+            return wordnet.VERB
+        elif treebank_tag.startswith('N'):
+            return wordnet.NOUN
+        elif treebank_tag.startswith('R'):
+            return wordnet.ADV
+        else:
+            return wordnet.NOUN
+
+    def is_natural_synonym(self, original, candidate):
+        """Check if a candidate synonym is natural and appropriate."""
+        orig_lower = original.lower()
+        cand_lower = candidate.lower()
+        
+        if cand_lower == orig_lower:
+            return False
+        if ' ' in candidate or '_' in candidate:
+            return False
+        if any(char.isdigit() for char in candidate):
+            return False
+        if any(char in ['_', '-', '.'] for char in candidate):
+            return False
+        if cand_lower in self.blacklist:
+            return False
+        if len(candidate) > len(original) + 4:
+            return False
+        if len(candidate) > 12:
+            return False
+        if len(candidate) > 1 and any(c.isupper() for c in candidate[1:]):
+            return False
+        
+        uncommon_patterns = ['tion', 'ment', 'ness', 'ity', 'ous', 'ious']
+        orig_has_pattern = any(pattern in orig_lower for pattern in uncommon_patterns)
+        cand_has_pattern = any(pattern in cand_lower for pattern in uncommon_patterns)
+        
+        if not orig_has_pattern and cand_has_pattern:
+            return False
+        
+        return True
+
+    def synonym_swap(self, word, pos_tag=None):
+        """Replace a word with a natural-sounding synonym."""
+        if len(word) <= 2:
+            return word
+        
+        is_capitalized = word[0].isupper()
+        is_all_caps = word.isupper()
+        
+        try:
+            wn_pos = None
+            if pos_tag:
+                wn_pos = self.get_wordnet_pos(pos_tag)
+            
+            if wn_pos:
+                synsets = wordnet.synsets(word, pos=wn_pos)
+            else:
+                synsets = wordnet.synsets(word)
+        except Exception:
+            return word
+
+        if not synsets:
+            return word
+
+        primary_synset = synsets[0]
+        candidates = []
+        
+        for lemma in primary_synset.lemmas():
+            name = lemma.name().replace("_", " ")
+            if self.is_natural_synonym(word, name):
+                length_score = -abs(len(name) - len(word))
+                candidates.append((name, length_score))
+
+        if not candidates:
+            return word
+
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        top_candidates = [c[0] for c in candidates[:2]]
+        
+        if not top_candidates:
+            return word
+        
+        choice = random.choice(top_candidates)
+        
+        if is_all_caps:
+            return choice.upper()
+        elif is_capitalized:
+            return choice.capitalize()
+        else:
+            return choice.lower()
+
+    def adjust_formality(self, token, level):
+        """Adjust token based on target formality level."""
+        low = self.casual_map.get(token.lower())
+        high = self.formal_map.get(token.lower())
+
+        if level <= 2 and low:
+            return low
+        if level >= 6 and high:
+            return high
+        return token
+
+    def apply_contractions(self, text, intensity=0.5):
+        """Apply contractions to make text more natural (AI evasion)."""
+        if intensity <= 0:
+            return text
+        
+        for full, contracted in self.contractions.items():
+            if random.random() < intensity:
+                # Case-insensitive replacement with proper capitalization
+                pattern = re.compile(re.escape(full), re.IGNORECASE)
+                
+                def replace_with_case(match):
+                    if match.group(0)[0].isupper():
+                        return contracted.capitalize()
+                    return contracted
+                
+                text = pattern.sub(replace_with_case, text)
+        
+        return text
+
+    def inject_subtle_typos(self, words, typo_rate=0.005):
+        """Inject very subtle, human-like typos (AI evasion)."""
+        new_words = []
+        for word in words:
+            w_lower = word.lower()
+            if w_lower in self.common_typos and random.random() < typo_rate:
+                typo = random.choice(self.common_typos[w_lower])
+                # Preserve capitalization
+                if word[0].isupper():
+                    typo = typo.capitalize()
+                new_words.append(typo)
+            else:
+                new_words.append(word)
+        return new_words
+
+    def vary_capitalization(self, sentence, cap_variation=0.5):
+        """
+        Introduce slight capitalization variations.
+        Higher values = more human-like inconsistencies
+        """
+        if cap_variation <= 0:
+            return sentence
+        
+        # Randomly lowercase some sentence starts (informal style)
+        if random.random() < cap_variation * 0.15 and len(sentence) > 0:
+            if sentence[0].isupper() and sentence[1:2] != sentence[1:2].upper():
+                sentence = sentence[0].lower() + sentence[1:]
+        
+        return sentence
+
+    def add_filler_words(self, sentence, filler_prob=0.08):
+        """Add natural filler words/phrases (AI evasion)."""
+        fillers_start = ["Well,", "So,", "Now,", "Actually,", "Honestly,", "Basically,"]
+        fillers_mid = [", you know,", ", I think,", ", obviously,", ", really,"]
+        
+        # Add starting filler
+        if random.random() < filler_prob and not any(sentence.startswith(f) for f in fillers_start):
+            sentence = random.choice(fillers_start) + " " + sentence[0].lower() + sentence[1:]
+        
+        # Add mid-sentence filler
+        if random.random() < filler_prob * 0.5 and "," in sentence:
+            parts = sentence.split(",", 1)
+            if len(parts) == 2:
+                sentence = parts[0] + random.choice(fillers_mid) + parts[1]
+        
+        return sentence
+    def enhance_perplexity(self, text, perplexity_rate=0.12):
+        """Add unexpected word choices and phrasing (perplexity simulation)."""
+        sentences = text.split('. ')
+        enhanced = []
+        
+        for sent in sentences:
+            if random.random() < perplexity_rate:
+                # Add unexpected qualifiers
+                qualifiers = ['quite', 'rather', 'somewhat', 'fairly', 'pretty', 'relatively']
+                words = sent.split()
+                if len(words) > 4:
+                    pos = random.randint(1, len(words)-2)
+                    words.insert(pos, random.choice(qualifiers))
+                    sent = ' '.join(words)
+            enhanced.append(sent)
+        
+        return '. '.join(enhanced)
+
+    def burst(self, sentences, level):
+        """Enhanced sentence variation with AI evasion patterns."""
+        new_sents = []
+        for s in sentences:
+            words = s.split()
+            
+            # Split very long sentences
+            if level >= 6 and len(words) > 22:
+                if "," in s:
+                    parts = [p.strip() for p in s.split(",") if p.strip()]
+                    for p in parts:
+                        if p:
+                            new_sents.append(p)
+                    continue
+                else:
+                    mid = len(words)//2
+                    new_sents.append(" ".join(words[:mid]))
+                    new_sents.append(" ".join(words[mid:]))
+                    continue
+
+            # Merge short sentences occasionally
+            if level >= 7 and len(words) < 8 and len(new_sents) > 0 and random.random() < 0.4:
+                connectors = [", and ", ", but ", ", so "]
+                connector = random.choice(connectors)
+                new_sents[-1] = new_sents[-1].rstrip('.') + connector + s[0].lower() + s[1:]
+                continue
+
+            new_sents.append(s)
+
+        return new_sents
+
+    def humanize(self, text, formality_level=4, burstiness_level=6, synonym_prob=0.12, 
+                 cap_variation=0.5, contraction_rate=0.5, typo_rate=0.005, filler_prob=0.08):
+        """
+        Advanced humanization with AI detection evasion.
+        
+        Parameters:
+        - cap_variation: 0-1, higher = more capitalization inconsistencies
+        - contraction_rate: 0-1, probability of using contractions
+        - typo_rate: 0-0.02, probability of subtle typos (default 0.005 = 0.5%)
+        - filler_prob: 0-1, probability of adding filler words
+        """
+        if not text or not text.strip():
+            return ""
+
+        try:
+            sentences = sent_tokenize(text)
+        except Exception as e:
+            raise RuntimeError("NLTK tokenizer error (punkt missing?). " + str(e))
+
+        sentences = self.burst(sentences, burstiness_level)
+
+        out_sentences = []
+        for sent_idx, sentence in enumerate(sentences):
+            try:
+                words = word_tokenize(sentence)
+            except Exception:
+                words = sentence.split()
+
+            # POS tag the words
+            try:
+                pos_tags = nltk.pos_tag(words)
+            except Exception:
+                pos_tags = [(w, None) for w in words]
+
+            new_words = []
+            for idx, (w, pos) in enumerate(pos_tags):
+                # Keep punctuation
+                if all(ch in string.punctuation for ch in w):
+                    new_words.append(w)
+                    continue
+                
+                # Don't replace proper nouns
+                if pos in ('NNP', 'NNPS'):
+                    new_words.append(w)
+                    continue
+                
+                # Don't replace very common words
+                if w.lower() in ('the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'i'):
+                    new_words.append(w)
+                    continue
+
+                # Random synonym replacement
+                if random.random() < synonym_prob:
+                    replaced = self.synonym_swap(w, pos)
+                    w = replaced
+
+                # Formality adjustments
+                w = self.adjust_formality(w, formality_level)
+
+                new_words.append(w)
+
+            # Inject subtle typos (very conservative)
+            new_words = self.inject_subtle_typos(new_words, typo_rate)
+
+            # Occasional ellipsis
+            if random.random() < 0.045:
+                if new_words and new_words[-1] not in (".", "!", "?"):
+                    new_words.append("...")
+
+            # Join tokens
+            sentence_out = " ".join(new_words)
+            for punct in ['.', ',', '!', '?', ':', ';', '...']:
+                sentence_out = sentence_out.replace(' ' + punct, punct)
+
+            # Apply capitalization variation
+            sentence_out = self.vary_capitalization(sentence_out, cap_variation)
+            
+            # Add filler words occasionally
+            if sent_idx > 0:  # Don't add to first sentence
+                sentence_out = self.add_filler_words(sentence_out, filler_prob)
+
+            out_sentences.append(sentence_out)
+
+        # Join sentences
+        output = ' '.join(out_sentences)
+        
+        # Apply contractions
+        output = self.apply_contractions(output, contraction_rate)
+        output = self.apply_contractions(output, contraction_rate)
+        output = self.enhance_perplexity(output, 0.12)
+        output = self.add_natural_redundancy(output, 0.08)  # NEW
+        output = self.add_hedging_language(output, 0.10)    # NEW
+        output = self.add_personal_touches(output, 0.06)    # NEW
+        
+        return output
+        return output
+
+# ---------------------------
+# Threading / Worker helper
+# ---------------------------
+class WorkerThread(threading.Thread):
+    """Runs a callable in background and returns result via queue."""
+    def __init__(self, fn, args=(), kwargs=None, result_queue=None):
+        super().__init__(daemon=True)
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs or {}
+        self.result_queue = result_queue or queue.Queue()
+
+    def run(self):
+        try:
+            res = self.fn(*self.args, **self.kwargs)
+            self.result_queue.put((True, res))
+        except Exception as e:
+            self.result_queue.put((False, e))
+
+# ---------------------------
+# Enhanced Tkinter App
+# ---------------------------
+class AIHumanizerApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Ghost 👻 - AI Evasion Humanizer v3.0 | @Y2cipher")
+        self.root.geometry("1100x850")
+        self.humanizer = LocalHumanizer()
+        self.worker_q = queue.Queue()
+        self.current_worker = None
+        
+        # For draggable separator
+        self.dragging = False
+        self.start_y = 0
+
+        self.create_widgets()
+        self.poll_worker()
+
+    def create_widgets(self):
+        main = ttk.Frame(self.root, padding=12)
+        main.grid(row=0, column=0, sticky="nsew")
+
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+
+        main.columnconfigure(0, weight=1)
+        main.columnconfigure(1, weight=0)
+        main.rowconfigure(2, weight=1)  # Input text area
+        main.rowconfigure(6, weight=1)  # Output text area
+
+        # Title
+        ttk.Label(main, text="Ghost 👻 - AI Evasion Humanizer", 
+                 font=("Helvetica", 18, "bold")).grid(row=0, column=0, sticky="w", pady=(0,10))
+
+        ttk.Label(main, text="Input:").grid(row=1, column=0, sticky="w")
+        self.input_text = scrolledtext.ScrolledText(main, height=14, wrap='word')
+        self.input_text.grid(row=2, column=0, sticky="nsew", padx=(0,12), pady=6)
+
+        # Enhanced options panel
+        opts = ttk.Frame(main)
+        opts.grid(row=2, column=1, sticky="ne", padx=(0,0))
+
+        ttk.Label(opts, text="Mode / Preset:").grid(row=0, column=0, sticky="w")
+        self.mode_var = tk.StringVar(value="Stealth (AI Evasion)")
+        modes = ("Stealth (AI Evasion)", "Balanced", "Casual", "Formal", "Creative")
+        self.mode_combo = ttk.Combobox(opts, values=modes, state="readonly", textvariable=self.mode_var, width=20)
+        self.mode_combo.grid(row=1, column=0, sticky="ew", pady=(2,8))
+        self.mode_combo.bind('<<ComboboxSelected>>', self._apply_preset)
+
+        ttk.Label(opts, text="Formality (0=casual, 8=formal):").grid(row=2, column=0, sticky="w")
+        self.formality_var = tk.IntVar(value=3)
+        self.formality_scale = ttk.Scale(opts, from_=0, to=8, variable=self.formality_var)
+        self.formality_scale.grid(row=3, column=0, sticky="ew", pady=(2,6))
+
+        ttk.Label(opts, text="Burstiness (sentence variety):").grid(row=4, column=0, sticky="w")
+        self.burstiness_var = tk.IntVar(value=7)
+        self.burstiness_scale = ttk.Scale(opts, from_=3, to=8, variable=self.burstiness_var)
+        self.burstiness_scale.grid(row=5, column=0, sticky="ew", pady=(2,6))
+
+        ttk.Label(opts, text="Synonym replacement:").grid(row=6, column=0, sticky="w")
+        self.synprob_var = tk.DoubleVar(value=0.18)
+        self.synprob_scale = ttk.Scale(opts, from_=0.0, to=0.5, variable=self.synprob_var)
+        self.synprob_scale.grid(row=7, column=0, sticky="ew", pady=(2,6))
+
+        # NEW: Capitalization variation
+        ttk.Label(opts, text="Capitalization variation:").grid(row=8, column=0, sticky="w")
+        self.cap_var = tk.DoubleVar(value=0.4)
+        self.cap_scale = ttk.Scale(opts, from_=0.0, to=1.0, variable=self.cap_var)
+        self.cap_scale.grid(row=9, column=0, sticky="ew", pady=(2,6))
+
+        # NEW: Contraction rate
+        ttk.Label(opts, text="Contraction usage:").grid(row=10, column=0, sticky="w")
+        self.contract_var = tk.DoubleVar(value=0.6)
+        self.contract_scale = ttk.Scale(opts, from_=0.0, to=1.0, variable=self.contract_var)
+        self.contract_scale.grid(row=11, column=0, sticky="ew", pady=(2,6))
+
+        # NEW: Typo injection
+        ttk.Label(opts, text="Subtle typos (human-like):").grid(row=12, column=0, sticky="w")
+        self.typo_var = tk.DoubleVar(value=0.003)
+        self.typo_scale = ttk.Scale(opts, from_=0.0, to=0.02, variable=self.typo_var)
+        self.typo_scale.grid(row=13, column=0, sticky="ew", pady=(2,6))
+
+        # NEW: Filler words
+        ttk.Label(opts, text="Filler words (Well, Actually):").grid(row=14, column=0, sticky="w")
+        self.filler_var = tk.DoubleVar(value=0.08)
+        self.filler_scale = ttk.Scale(opts, from_=0.0, to=0.3, variable=self.filler_var)
+        self.filler_scale.grid(row=15, column=0, sticky="ew", pady=(2,12))
+
+        btns = ttk.Frame(opts)
+        btns.grid(row=16, column=0, pady=(6,0), sticky="ew")
+        btns.columnconfigure(0, weight=1)
+
+        self.humanize_btn = ttk.Button(btns, text="👻 Humanize", command=self.on_humanize)
+        self.humanize_btn.grid(row=0, column=0, sticky="ew")
+
+        self.stop_btn = ttk.Button(btns, text="■ Stop", command=self.on_stop)
+        self.stop_btn.grid(row=1, column=0, sticky="ew", pady=(6,0))
+        self.stop_btn.state(['disabled'])
+
+        # Draggable separator
+        separator_frame = ttk.Frame(main, cursor="sb_v_double_arrow")
+        separator_frame.grid(row=4, column=0, columnspan=2, sticky="ew", pady=4)
+        
+        self.separator = ttk.Separator(separator_frame, orient='horizontal')
+        self.separator.pack(fill='x', expand=True)
+        
+        # Bind mouse events for dragging
+        separator_frame.bind('<Button-1>', self.start_drag)
+        separator_frame.bind('<B1-Motion>', self.on_drag)
+        separator_frame.bind('<ButtonRelease-1>', self.stop_drag)
+        self.separator.bind('<Button-1>', self.start_drag)
+        self.separator.bind('<B1-Motion>', self.on_drag)
+        self.separator.bind('<ButtonRelease-1>', self.stop_drag)
+
+        output_header = ttk.Frame(main)
+        output_header.grid(row=5, column=0, sticky="ew")
+        ttk.Label(output_header, text="Output:").pack(side="left")
+        self.word_count_var = tk.StringVar(value="Words: 0")
+        ttk.Label(output_header, textvariable=self.word_count_var, foreground="gray").pack(side="right")
+        
+        self.output_text = scrolledtext.ScrolledText(main, height=14, wrap='word')
+        self.output_text.grid(row=6, column=0, sticky="nsew", padx=(0,12), pady=6)
+
+        out_ctrl = ttk.Frame(main)
+        out_ctrl.grid(row=6, column=1, sticky="ne")
+        ttk.Button(out_ctrl, text="Save Output", command=self.save_output).grid(row=0, column=0, sticky="ew")
+        ttk.Button(out_ctrl, text="Copy Output", command=self.copy_output).grid(row=1, column=0, sticky="ew", pady=(6,0))
+        ttk.Button(out_ctrl, text="Clear Output", command=self.clear_output).grid(row=2, column=0, sticky="ew", pady=(6,0))
+
+        bottom = ttk.Frame(main)
+        bottom.grid(row=7, column=0, columnspan=2, sticky="ew", pady=(6,0))
+        bottom.columnconfigure(1, weight=1)
+
+        ttk.Button(bottom, text="Load Input", command=self.load_input).grid(row=0, column=0, sticky="w")
+
+        self.status_var = tk.StringVar(value="Ready - Stealth mode active")
+        ttk.Label(bottom, textvariable=self.status_var).grid(row=0, column=1, sticky="w", padx=(12,0))
+
+        self.progress = ttk.Progressbar(bottom, mode='indeterminate')
+        self.progress.grid(row=0, column=2, sticky="e")
+
+        self._create_menu()
+        self._apply_preset()
+
+    def _create_menu(self):
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
+
+        filem = tk.Menu(menubar, tearoff=False)
+        menubar.add_cascade(label="File", menu=filem)
+        filem.add_command(label="Load Input...", command=self.load_input)
+        filem.add_command(label="Save Output...", command=self.save_output)
+        filem.add_separator()
+        filem.add_command(label="Exit", command=self.root.quit)
+
+        helpm = tk.Menu(menubar, tearoff=False)
+        menubar.add_cascade(label="Help", menu=helpm)
+        helpm.add_command(label="About", command=lambda: messagebox.showinfo(
+            "About", 
+            "Ghost 👻 - AI Evasion Humanizer v3.0\n\n"
+            "Developer: @Y2cipher\n"
+            "Enhanced with AI detection evasion\n\n"
+            "Features:\n"
+            "• Natural synonym selection\n"
+            "• Capitalization variation\n"
+            "• Contraction usage\n"
+            "• Subtle typo injection\n"
+            "• Filler word insertion\n"
+            "• Sentence structure randomization"
+        ))
+
+    def _apply_preset(self, *args):
+        preset = self.mode_var.get()
+        if preset == "Stealth (AI Evasion)":
+            self.formality_var.set(3)
+            self.burstiness_var.set(7)
+            self.synprob_var.set(0.18)
+            self.cap_var.set(0.4)
+            self.contract_var.set(0.6)
+            self.typo_var.set(0.003)
+            self.filler_var.set(0.08)
+        elif preset == "Balanced":
+            self.formality_var.set(4)
+            self.burstiness_var.set(6)
+            self.synprob_var.set(0.12)
+            self.cap_var.set(0.2)
+            self.contract_var.set(0.4)
+            self.typo_var.set(0.001)
+            self.filler_var.set(0.03)
+        elif preset == "Casual":
+            self.formality_var.set(2)
+            self.burstiness_var.set(6)
+            self.synprob_var.set(0.14)
+            self.cap_var.set(0.5)
+            self.contract_var.set(0.8)
+            self.typo_var.set(0.005)
+            self.filler_var.set(0.12)
+        elif preset == "Formal":
+            self.formality_var.set(7)
+            self.burstiness_var.set(5)
+            self.synprob_var.set(0.09)
+            self.cap_var.set(0.0)
+            self.contract_var.set(0.1)
+            self.typo_var.set(0.0)
+            self.filler_var.set(0.0)
+        elif preset == "Creative":
+            self.formality_var.set(3)
+            self.burstiness_var.set(8)
+            self.synprob_var.set(0.22)
+            self.cap_var.set(0.6)
+            self.contract_var.set(0.7)
+            self.typo_var.set(0.004)
+            self.filler_var.set(0.15)
+
+    def set_status(self, txt):
+        self.status_var.set(txt)
+
+    def on_humanize(self):
+        raw = self.input_text.get("1.0", tk.END).strip()
+        if not raw:
+            messagebox.showwarning("No input", "Please provide input text to humanize.")
+            return
+
+        formality = int(self.formality_var.get())
+        burst = int(self.burstiness_var.get())
+        synp = float(self.synprob_var.get())
+        cap_var = float(self.cap_var.get())
+        contract = float(self.contract_var.get())
+        typo = float(self.typo_var.get())
+        filler = float(self.filler_var.get())
+
+        self.humanize_btn.state(['disabled'])
+        self.stop_btn.state(['!disabled'])
+        self.progress.start(10)
+        self.set_status("Humanizing with AI evasion techniques...")
+
+        self.current_worker = WorkerThread(
+            fn=self.humanizer.humanize,
+            args=(raw,),
+            kwargs={
+                "formality_level": formality,
+                "burstiness_level": burst,
+                "synonym_prob": synp,
+                "cap_variation": cap_var,
+                "contraction_rate": contract,
+                "typo_rate": typo,
+                "filler_prob": filler
+            },
+            result_queue=self.worker_q
+        )
+        self.current_worker.start()
+
+    def on_stop(self):
+        if self.current_worker and self.current_worker.is_alive():
+            self.stop_btn.state(['disabled'])
+            self.set_status("Stop requested — worker will finish current operation")
+            self.current_worker = None
+        else:
+            self.set_status("No running worker")
+
+    def poll_worker(self):
+        try:
+            ok, payload = self.worker_q.get_nowait()
+        except queue.Empty:
+            self.root.after(200, self.poll_worker)
+            return
+
+        self.progress.stop()
+        self.humanize_btn.state(['!disabled'])
+        self.stop_btn.state(['disabled'])
+
+        if self.current_worker is None:
+            self.set_status("Stopped by user (result ignored)")
+            self._drain_queue_quickly()
+            self.root.after(200, self.poll_worker)
+            return
+
+        if ok:
+            result_text = payload
+            self.output_text.delete("1.0", tk.END)
+            self.output_text.insert("1.0", result_text)
+            word_count = len(result_text.split())
+            self.word_count_var.set(f"Words: {word_count}")
+            self.set_status("Done - AI evasion applied")
+        else:
+            exc = payload
+            messagebox.showerror("Error during humanization", f"{exc}")
+            self.set_status("Error")
+
+        self.current_worker = None
+        self.root.after(200, self.poll_worker)
+
+    def _drain_queue_quickly(self):
+        try:
+            while True:
+                self.worker_q.get_nowait()
+        except queue.Empty:
+            return
+
+    def save_output(self):
+        txt = self.output_text.get("1.0", tk.END).rstrip()
+        if not txt:
+            messagebox.showinfo("Nothing to save", "Output is empty.")
+            return
+        filename = filedialog.asksaveasfilename(defaultextension='.txt', filetypes=[('Text files', '*.txt'), ('All files', '*.*')])
+        if filename:
+            try:
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(txt)
+                self.set_status(f"Saved to {os.path.basename(filename)}")
+            except Exception as e:
+                messagebox.showerror("Save failed", str(e))
+
+    def load_input(self):
+        filename = filedialog.askopenfilename(filetypes=[('Text files', '*.txt'), ('All files', '*.*')])
+        if filename:
+            try:
+                with open(filename, 'r', encoding='utf-8') as f:
+                    data = f.read()
+                self.input_text.delete('1.0', tk.END)
+                self.input_text.insert('1.0', data)
+                self.set_status(f"Loaded {os.path.basename(filename)}")
+            except Exception as e:
+                messagebox.showerror("Load failed", str(e))
+
+    def copy_output(self):
+        txt = self.output_text.get('1.0', tk.END).strip()
+        if not txt:
+            messagebox.showinfo("Nothing to copy", "Output is empty.")
+            return
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(txt)
+            self.set_status("Output copied to clipboard")
+        except Exception as e:
+            messagebox.showerror("Clipboard error", str(e))
+
+    def clear_output(self):
+        self.output_text.delete('1.0', tk.END)
+        self.word_count_var.set("Words: 0")
+        self.set_status("Output cleared")
+
+    def start_drag(self, event):
+        """Start dragging the separator."""
+        self.dragging = True
+        self.start_y = event.y_root
+
+    def on_drag(self, event):
+        """Handle separator dragging to resize input/output boxes."""
+        if not self.dragging:
+            return
+        
+        # Calculate the change in position
+        delta_y = event.y_root - self.start_y
+        self.start_y = event.y_root
+        
+        # Get current heights
+        input_height = self.input_text.winfo_height()
+        output_height = self.output_text.winfo_height()
+        
+        # Calculate new heights (minimum 100 pixels each)
+        new_input_height = max(100, input_height + delta_y)
+        new_output_height = max(100, output_height - delta_y)
+        
+        # Convert pixels to approximate lines (assuming ~20 pixels per line)
+        input_lines = max(5, int(new_input_height / 20))
+        output_lines = max(5, int(new_output_height / 20))
+        
+        # Update the text widget heights
+        self.input_text.config(height=input_lines)
+        self.output_text.config(height=output_lines)
+
+    def stop_drag(self, event):
+        """Stop dragging the separator."""
+        self.dragging = False
+
+# ---------------------------
+# Run
+# ---------------------------
+if __name__ == '__main__':
+    try:
+        if sys.platform == 'win32':
+            from ctypes import windll
+            windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        pass
+
+    root = tk.Tk()
+    app = AIHumanizerApp(root)
+    root.mainloop()
